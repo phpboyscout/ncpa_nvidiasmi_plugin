@@ -24,6 +24,6 @@ setup(name='ncpa-nvidiasmi-plugin',
         install_requires=[
             "argparse",
             "nagiosplugin"],
-        scripts=["check_nvidiasmi.py"],
+        scripts=["src/check_nvidiasmi.py"],
 
 )
