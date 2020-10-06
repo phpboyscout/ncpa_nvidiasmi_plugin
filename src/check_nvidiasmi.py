@@ -39,7 +39,7 @@ class NvidiaSmiWapper():
 
     def contexts(self):
         contexts = list()
-        for i, gpu in self.gpus.items():
+        for i, _ in self.gpus.items():
             contexts.append(nagiosplugin.ScalarContext("{}_util".format(i), self.args.gpu_warning, self.args.gpu_critical))
             contexts.append(nagiosplugin.ScalarContext("{}_mem".format(i), self.args.mem_warning, self.args.mem_critical))
             contexts.append(nagiosplugin.ScalarContext("{}_temp".format(i), self.args.temp_warning, self.args.temp_critical))
