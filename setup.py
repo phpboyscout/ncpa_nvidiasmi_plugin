@@ -21,7 +21,7 @@ setup(name='ncpa-nvidiasmi-plugin',
         url='https://github.com/phpboyscout/ncpa-nvidiasmi-plugin',
         description='NCPA plugin to check status of Nvidia GPUs using nvidia-smi',
         long_description=readme(),
-        long_description_content_type="text/markdown,
+        long_description_content_type="text/markdown",
         install_requires=[
             "argparse",
             "nagiosplugin"],
