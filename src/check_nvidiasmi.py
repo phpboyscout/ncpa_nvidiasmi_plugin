@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse, logging, nagiosplugin, subprocess, xml.etree.ElementTree
+import argparse, logging, nagiosplugin, statistics, subprocess, xml.etree.ElementTree
 
 class NvidiaSmiWapper():
     info = {}
@@ -17,12 +17,16 @@ class NvidiaSmiWapper():
         self.info["cuda_version"] = nvidia_smi_xml_root.find("cuda_version").text
         self.info["attached_gpus"] = nvidia_smi_xml_root.find("attached_gpus").text
 
+        avg_util = list()
+
         for gpu in nvidia_smi_xml_root.iter('gpu'):
             gpu_index = int(gpu.find('minor_number').text)
             utilization = gpu.find('utilization')
             temperature = gpu.find('temperature')
             power = gpu.find('power_readings')
             
+            
+
             self.gpus[gpu_index] = {
                 "id": gpu.get("id"),
                 "name":  gpu.find('product_name').text,
@@ -31,14 +35,21 @@ class NvidiaSmiWapper():
                 "temperature": temperature.find('gpu_temp').text,
                 "processes": len(gpu.find("processes"))
             }
+
+            avg_util.append(float(self.gpus[gpu_index]["utilisation"].strip("%")))
             
             power_enabled = power.find("power_management").text
             if power_enabled == "Supported":
                 self.gpus[gpu_index]["power_draw"] = power.find("power_draw").find
+        
+
+        self.info["avg_utilisation"] = statistics.mean(avg_util)
+            
 
 
     def contexts(self):
         contexts = list()
+        contexts.append(nagiosplugin.ScalarContext("avg_util", self.args.avg_gpu_warning, self.args.avg_gpu_critical))
         for i, _ in self.gpus.items():
             contexts.append(nagiosplugin.ScalarContext("{}_util".format(i), self.args.gpu_warning, self.args.gpu_critical))
             contexts.append(nagiosplugin.ScalarContext("{}_mem".format(i), self.args.mem_warning, self.args.mem_critical))
@@ -53,6 +64,9 @@ class Gpu(nagiosplugin.Resource):
         self.smi = smi
 
     def probe(self):
+        avg_util = self.smi.info['avg_utilisation']
+        yield nagiosplugin.Metric("avg_util", avg_util, '%')
+
         for i, gpu in self.smi.gpus.items():
             util = float(gpu['utilisation'].strip(' %'))
             yield nagiosplugin.Metric("{}_util".format(i), util, '%')
@@ -71,7 +85,8 @@ class GpuSummary(nagiosplugin.Summary):
         self.smi = smi
  
     def ok(self, results):
-        return "Driver={}, CUDA={}".format(
+        return "Average Util={}%, Driver={}, CUDA={}".format(
+            self.smi.info["avg_utilisation"],
             self.smi.info["driver_version"],
             self.smi.info["cuda_version"])
 
@@ -80,14 +95,16 @@ class GpuSummary(nagiosplugin.Summary):
 @nagiosplugin.guarded
 def main():
     argp = argparse.ArgumentParser(description='NCPA plugin to check Nvidia GPU status using nvidia-smi')
-    argp.add_argument('-u', '--gpu_warning', metavar='RANGE', default=0,help='warning if threshold is outside RANGE')
-    argp.add_argument('-U', '--gpu_critical', metavar='RANGE', default=0,help='critical if threshold is outside RANGE')
-    argp.add_argument('-m', '--mem_warning', metavar='RANGE', default=0,help='warning if threshold is outside RANGE')
-    argp.add_argument('-M', '--mem_critical', metavar='RANGE', default=0,help='critical if threshold is outside RANGE')
-    argp.add_argument('-t', '--temp_warning', metavar='RANGE', default=0,help='warning if threshold is outside RANGE')
-    argp.add_argument('-T', '--temp_critical', metavar='RANGE', default=0, help='critical if threshold is outside RANGE')
-    argp.add_argument('-p', '--procs_warning', metavar='RANGE', default=0, help='warning if threshold is outside RANGE')
-    argp.add_argument('-P', '--procs_critical', metavar='RANGE', default=0, help='critical if threshold is outside RANGE')
+    argp.add_argument('-a', '--avg_gpu_warning', metavar='RANGE', default=0,help='warning if threshold is outside RANGE for average of all GPUS')
+    argp.add_argument('-A', '--avg_gpu_critical', metavar='RANGE', default=0,help='critical if threshold is outside RANGE for average of all GPUS')
+    argp.add_argument('-u', '--gpu_warning', metavar='RANGE', default=0,help='warning if threshold is outside RANGE for any given GPU')
+    argp.add_argument('-U', '--gpu_critical', metavar='RANGE', default=0,help='critical if threshold is outside RANGE for any given GPU')
+    argp.add_argument('-m', '--mem_warning', metavar='RANGE', default=0,help='warning if threshold is outside RANGE for any given GPU')
+    argp.add_argument('-M', '--mem_critical', metavar='RANGE', default=0,help='critical if threshold is outside RANGE for any given GPU')
+    argp.add_argument('-t', '--temp_warning', metavar='RANGE', default=0,help='warning if threshold is outside RANGE for any given GPU')
+    argp.add_argument('-T', '--temp_critical', metavar='RANGE', default=0, help='critical if threshold is outside RANGE for any given GPU')
+    argp.add_argument('-p', '--procs_warning', metavar='RANGE', default=0, help='warning if threshold is outside RANGE for any given GPU')
+    argp.add_argument('-P', '--procs_critical', metavar='RANGE', default=0, help='critical if threshold is outside RANGE for any given GPU')
     argp.add_argument('-v', '--verbose', action='count', default=0, help='increase verbosity (use up to 3 times)')
     args=argp.parse_args()
 
