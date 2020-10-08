@@ -43,7 +43,7 @@ class NvidiaSmiWapper():
                 self.gpus[gpu_index]["power_draw"] = power.find("power_draw").find
         
 
-        self.info["avg_utilisation"] = statistics.mean(avg_util)
+        self.info["avg_utilisation"] = round(statistics.mean(avg_util),2)
             
 
 
